@@ -1,36 +1,21 @@
 package com.minieessential.feature.skin;
 
 import com.minieessential.MiniEssential;
-import com.minieessential.config.MiniEssentialConfig;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.text.Text;
-import net.minecraft.util.Util;
 
-import java.io.IOException;
-import java.nio.file.Path;
 import java.util.List;
 
-/**
- * Feature 3 - Offline Skin Switcher: in-game screen.
- *
- * Lets the user manage up to 5 local skin slots:
- *   - Scan the local skins folder for .png files
- *   - Assign a file to a slot, set name, toggle Wide/Slim arms
- *   - Activate one slot (instant client-side rendering via mixins)
- *   - Remove a slot
- *
- * Fully local, no network, no AWT.
- */
 public class SkinSwitcherScreen extends Screen {
     private final MinecraftClient mc = MinecraftClient.getInstance();
-    private final SkinSwitcher switcher = new SkinSwitcher();
+    private final SkinSwitcher switcher = MiniEssential.skinSwitcher;
 
-    private int selectedSlot = 0;          // slot being edited (0-4)
-    private String newName = "";
+    private int selectedSlot = 0;
     private TextFieldWidget nameField;
 
     public SkinSwitcherScreen() {
@@ -43,22 +28,26 @@ public class SkinSwitcherScreen extends Screen {
         int top = 40;
         int gap = 24;
 
-        // Slot buttons (0-4) on the left
         for (int i = 0; i < SkinSwitcher.MAX_SKINS; i++) {
             int slot = i;
-            ButtonWidget b = ButtonWidget.builder(Text.literal("Slot " + (i + 1)), btn -> selectedSlot = slot)
+            ButtonWidget b = ButtonWidget.builder(Text.literal("Slot " + (i + 1)), btn -> {
+                        selectedSlot = slot;
+                        if (nameField != null) {
+                            nameField.setText(MiniEssential.config.skins.get(selectedSlot).name);
+                        }
+                    })
                     .dimensions(cx - 160, top + i * gap, 120, 20)
                     .build();
             addDrawableChild(b);
         }
 
-        // Right side: controls for selected slot
         int rightX = cx + 20;
         int rightY = top;
 
         nameField = new TextFieldWidget(mc.textRenderer, rightX, rightY, 180, 20,
                 Text.literal("Skin name"));
         nameField.setText(MiniEssential.config.skins.get(selectedSlot).name);
+        nameField.setChangedListener(text -> MiniEssential.config.skins.get(selectedSlot).name = text);
         addDrawableChild(nameField);
 
         ButtonWidget slimBtn = ButtonWidget.builder(
@@ -88,7 +77,6 @@ public class SkinSwitcherScreen extends Screen {
         SkinSlot slot = MiniEssential.config.skins.get(selectedSlot);
         slot.slimArms = !slot.slimArms;
         MiniEssential.config.save();
-        // rebuild screen to reflect toggle
         mc.setScreen(new SkinSwitcherScreen());
     }
 
@@ -104,6 +92,7 @@ public class SkinSwitcherScreen extends Screen {
         slot.slimArms = false;
         slot.active = false;
         MiniEssential.config.save();
+        switcher.reloadTextures();
         mc.setScreen(new SkinSwitcherScreen());
     }
 
@@ -112,9 +101,8 @@ public class SkinSwitcherScreen extends Screen {
         if (files.isEmpty()) {
             return;
         }
-        // assign first available file to selected slot if empty
         SkinSlot slot = MiniEssential.config.skins.get(selectedSlot);
-        if (slot.fileName.isEmpty() && !files.isEmpty()) {
+        if (slot.fileName.isEmpty()) {
             slot.fileName = files.get(0);
             slot.name = files.get(0).replace(".png", "");
             MiniEssential.config.save();
@@ -124,60 +112,41 @@ public class SkinSwitcherScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float tickDelta) {
-        renderBackground(graphics);
-        graphics.drawCenteredText(mc.textRenderer, title, width / 2, 16, 0xFFFFFF);
+    public void render(DrawContext context, int mouseX, int mouseY, float tickDelta) {
+        super.render(context, mouseX, mouseY, tickDelta);
+        context.drawCenteredTextWithShadow(mc.textRenderer, title, width / 2, 16, 0xFFFFFFFF);
 
-        // Instructions
-        graphics.drawCenteredText(
+        context.drawCenteredTextWithShadow(
                 mc.textRenderer,
                 "Put skin PNGs in .minecraft/miniessential/skins/",
-                width / 2, 30, 0x808080);
+                width / 2, 30, 0xFF808080);
 
-        // Highlight selected slot
         int cx = width / 2;
         int top = 40;
         int gap = 24;
-        graphics.fill(cx - 162, top + selectedSlot * gap - 2, cx - 40, top + selectedSlot * gap + 18, 0x60FFFFFF);
+        context.fill(cx - 162, top + selectedSlot * gap - 2, cx - 40, top + selectedSlot * gap + 18, 0x60FFFFFF);
 
-        // List slot status on left
         for (int i = 0; i < SkinSwitcher.MAX_SKINS; i++) {
             SkinSlot s = MiniEssential.config.skins.get(i);
             String status = s.active ? " [ACTIVE]" : "";
             String file = s.fileName.isEmpty() ? "(empty)" : s.fileName;
-            graphics.drawString(mc.textRenderer, "Slot " + (i + 1) + ": " + s.name + status + " [" + file + "]",
-                    cx - 150, top + i * gap + 6, i == selectedSlot ? 0xFFFF00 : 0xFFFFFF);
+            context.drawTextWithShadow(mc.textRenderer, "Slot " + (i + 1) + ": " + s.name + status + " [" + file + "]",
+                    cx - 150, top + i * gap + 6, i == selectedSlot ? 0xFFFFFF00 : 0xFFFFFFFF);
         }
 
-        // Selected slot details on right
         SkinSlot sel = MiniEssential.config.skins.get(selectedSlot);
-        graphics.drawString(mc.textRenderer, "Editing Slot " + (selectedSlot + 1), cx + 20, 38, 0xFFFFFF);
-        graphics.drawString(mc.textRenderer, "Slim arms: " + (sel.slimArms ? "Yes (Alex)" : "No (Steve)"),
-                cx + 20, top + 114, 0xA0A0A0);
-
-        if (nameField != null) {
-            nameField.render(graphics, mouseX, mouseY, tickDelta);
-        }
-
-        super.render(graphics, mouseX, mouseY, tickDelta);
+        context.drawTextWithShadow(mc.textRenderer, "Editing Slot " + (selectedSlot + 1), cx + 20, 28, 0xFFFFFFFF);
+        context.drawTextWithShadow(mc.textRenderer, "Slim arms: " + (sel.slimArms ? "Yes (Alex)" : "No (Steve)"),
+                cx + 20, top + 140, 0xFFA0A0A0);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 256) { // ESC
+    public boolean keyPressed(KeyInput input) {
+        if (input.key() == 256) {
             mc.setScreen(null);
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
-    }
-
-    @Override
-    public void tick() {
-        super.tick();
-        if (nameField != null) {
-            nameField.tick();
-            MiniEssential.config.skins.get(selectedSlot).name = nameField.getText();
-        }
+        return super.keyPressed(input);
     }
 
     @Override

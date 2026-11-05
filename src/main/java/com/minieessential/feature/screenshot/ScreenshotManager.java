@@ -11,20 +11,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-/**
- * Feature 2 - Offline Screenshot Manager: backend.
- *
- * Reads .minecraft/screenshots strictly from the local game directory.
- * No network, no remote services.
- */
 public class ScreenshotManager {
-    /** Local screenshots folder: .minecraft/screenshots */
-    public static final Path SCREENSHOTS_DIR = MinecraftClient.getInstance().runDirectory.resolve("screenshots");
+    public static final Path SCREENSHOTS_DIR = MinecraftClient.getInstance().runDirectory.toPath().resolve("screenshots");
 
-    /** A single screenshot entry. */
     public record ScreenshotEntry(Path path, String name, long lastModified, long size) {}
 
-    /** List all .png screenshots, newest first. */
     public List<ScreenshotEntry> listScreenshots() {
         List<ScreenshotEntry> entries = new ArrayList<>();
         try {
@@ -56,7 +47,6 @@ public class ScreenshotManager {
         return entries;
     }
 
-    /** Delete a screenshot file. */
     public void deleteScreenshot(Path path) throws IOException {
         Files.deleteIfExists(path);
     }

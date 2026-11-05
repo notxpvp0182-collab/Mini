@@ -2,39 +2,32 @@ package com.minieessential.feature.screenshot;
 
 import com.minieessential.MiniEssential;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.gui.Click;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.render.texture.DynamicTexture;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.texture.NativeImage;
+import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Feature 2 - Offline Screenshot Manager: gallery screen.
- *
- * Shows a scrollable list of local screenshots with thumbnails.
- * - Left click an entry -> open ScreenshotViewerScreen
- * - Right click an entry -> open ScreenshotOptionsScreen (Copy Path / Open Folder / Delete)
- *
- * Fully local. No AWT/Desktop calls - safe on Android launchers (PojavLauncher).
- * Clipboard uses GLFW (LWJGL); folder opening uses Util.getOperatingSystem() + ProcessBuilder
- * guarded to desktop OSes, falling back to copy-to-clipboard on unknown (e.g. Android).
- */
 public class ScreenshotGalleryScreen extends Screen {
     private final MinecraftClient mc = MinecraftClient.getInstance();
     private final ScreenshotManager manager = new ScreenshotManager();
 
-    /** Loaded thumbnail textures, keyed by screenshot path. */
     private final Map<Path, Identifier> textures = new ConcurrentHashMap<>();
 
     private int scrollY = 0;
@@ -49,26 +42,23 @@ public class ScreenshotGalleryScreen extends Screen {
 
     @Override
     protected void init() {
-        // Back button
         addDrawableChild(ButtonWidget.builder(Text.literal("Back"), btn -> mc.setScreen(null))
                 .dimensions(width / 2 - 100, height - 28, 200, 20).build());
-        // Open the screenshots folder in the OS file explorer (desktop OSes only)
         addDrawableChild(ButtonWidget.builder(Text.literal("Open Screenshots Folder"), btn -> openFolder())
                 .dimensions(width / 2 - 100, height - 52, 200, 20).build());
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float tickDelta) {
-        renderBackground(graphics);
-        graphics.drawCenteredText(mc.textRenderer, title, width / 2, 16, 0xFFFFFF);
+    public void render(DrawContext context, int mouseX, int mouseY, float tickDelta) {
+        super.render(context, mouseX, mouseY, tickDelta);
+        context.drawCenteredTextWithShadow(mc.textRenderer, title, width / 2, 16, 0xFFFFFFFF);
 
         List<ScreenshotManager.ScreenshotEntry> entries = manager.listScreenshots();
         int y = listTop - scrollY;
         hovered = null;
 
         for (ScreenshotManager.ScreenshotEntry entry : entries) {
-            // skip rows outside the visible area
-            if (y + entryHeight < listTop || y > height - 40) {
+            if (y + entryHeight < listTop || y > height - 60) {
                 y += entryHeight;
                 continue;
             }
@@ -79,71 +69,67 @@ public class ScreenshotGalleryScreen extends Screen {
                 hovered = entry;
             }
 
-            // row background
             int rowColor = mouseOver ? 0x50FFFFFF : 0x22FFFFFF;
-            graphics.fill(listLeft, y, listLeft + width - 60, y + entryHeight - 6, rowColor);
+            context.fill(listLeft, y, listLeft + width - 60, y + entryHeight - 6, rowColor);
 
-            // thumbnail
             Identifier tex = getTexture(entry.path());
             if (tex != null) {
-                graphics.blit(tex, listLeft + 6, y + 6, 0, 0, 34, 34, 34, 34);
+                context.drawTexture(RenderPipelines.GUI_TEXTURED, tex, listLeft + 6, y + 6, 0.0f, 0.0f, 34, 34, 34, 34);
             } else {
-                graphics.fill(listLeft + 6, y + 6, listLeft + 40, y + 40, 0xFF555555);
+                context.fill(listLeft + 6, y + 6, listLeft + 40, y + 40, 0xFF555555);
             }
 
-            // entry name
-            graphics.drawString(mc.textRenderer, entry.name(), listLeft + 48, y + 8, 0xFFFFFF);
-            // size + date
+            context.drawTextWithShadow(mc.textRenderer, entry.name(), listLeft + 48, y + 8, 0xFFFFFFFF);
             String info = formatSize(entry.size()) + "  ·  " + new Date(entry.lastModified()).toString();
-            graphics.drawString(mc.textRenderer, info, listLeft + 48, y + 24, 0xA0A0A0);
+            context.drawTextWithShadow(mc.textRenderer, info, listLeft + 48, y + 24, 0xFFA0A0A0);
 
             y += entryHeight;
         }
 
         if (entries.isEmpty()) {
-            graphics.drawCenteredText(mc.textRenderer, "No screenshots found.", width / 2, height / 2, 0x808080);
+            context.drawCenteredTextWithShadow(mc.textRenderer, "No screenshots found.", width / 2, height / 2, 0xFF808080);
         }
-
-        super.render(graphics, mouseX, mouseY, tickDelta);
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(Click click, boolean doubled) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
+
         List<ScreenshotManager.ScreenshotEntry> entries = manager.listScreenshots();
         int y = listTop - scrollY;
         for (ScreenshotManager.ScreenshotEntry entry : entries) {
             if (mouseX >= listLeft && mouseX <= listLeft + width - 60
                 && mouseY >= y && mouseY <= y + entryHeight - 6) {
                 if (button == 0) {
-                    // left click: open viewer
                     mc.setScreen(new ScreenshotViewerScreen(entry));
                     return true;
                 } else if (button == 1) {
-                    // right click: options menu
                     mc.setScreen(new ScreenshotOptionsScreen(this, entry));
                     return true;
                 }
             }
             y += entryHeight;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, doubled);
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double scrollAmount) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
         List<ScreenshotManager.ScreenshotEntry> entries = manager.listScreenshots();
-        int maxScroll = Math.max(0, entries.size() * entryHeight - (height - listTop - 40));
-        scrollY = (int) Math.clamp(scrollY - (int) (scrollAmount * 16), 0, maxScroll);
+        int maxScroll = Math.max(0, entries.size() * entryHeight - (height - listTop - 60));
+        scrollY = Math.clamp(scrollY - (int) (verticalAmount * 16), 0, maxScroll);
         return true;
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 256) { // ESC
+    public boolean keyPressed(KeyInput input) {
+        if (input.key() == 256) {
             mc.setScreen(null);
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(input);
     }
 
     @Override
@@ -152,15 +138,14 @@ public class ScreenshotGalleryScreen extends Screen {
         super.close();
     }
 
-    /** Load (and cache) a dynamic texture from a screenshot file. */
     private Identifier getTexture(Path path) {
         return textures.computeIfAbsent(path, p -> {
-            try {
-                NativeImage image = NativeImage.read(p.toFile());
-                DynamicTexture texture = new DynamicTexture(image);
-                String safe = p.getFileName().toString().toLowerCase();
-                Identifier id = new Identifier(MiniEssential.MOD_ID, "screenshot/" + safe);
-                mc.getTextureManager().registerDynamicTexture(id, texture);
+            try (InputStream in = Files.newInputStream(p)) {
+                NativeImage image = NativeImage.read(in);
+                String safe = p.getFileName().toString().toLowerCase().replaceAll("[^a-z0-9/._-]", "_");
+                NativeImageBackedTexture texture = new NativeImageBackedTexture(() -> "screenshot_" + safe, image);
+                Identifier id = Identifier.of(MiniEssential.MOD_ID, "screenshot/" + safe);
+                mc.getTextureManager().registerTexture(id, texture);
                 return id;
             } catch (IOException e) {
                 MiniEssential.LOGGER.warn("Failed to load screenshot thumbnail: {}", p, e);
@@ -175,12 +160,11 @@ public class ScreenshotGalleryScreen extends Screen {
         try {
             if (os == Util.OperatingSystem.WINDOWS) {
                 new ProcessBuilder("explorer", folder.toAbsolutePath().toString()).start();
-            } else if (os == Util.OperatingSystem.MACOS) {
+            } else if (os == Util.OperatingSystem.OSX) {
                 new ProcessBuilder("open", folder.toAbsolutePath().toString()).start();
             } else if (os == Util.OperatingSystem.LINUX) {
                 new ProcessBuilder("xdg-open", folder.toAbsolutePath().toString()).start();
             } else {
-                // Android / unknown: copy path to clipboard instead
                 copyToClipboard(folder.toAbsolutePath().toString());
             }
         } catch (IOException e) {
@@ -189,7 +173,6 @@ public class ScreenshotGalleryScreen extends Screen {
         }
     }
 
-    /** Copy text to the OS clipboard via GLFW (no AWT). */
     private void copyToClipboard(String text) {
         long window = mc.getWindow().getHandle();
         GLFW.glfwSetClipboardString(window, text);

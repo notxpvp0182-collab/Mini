@@ -2,9 +2,10 @@ package com.minieessential.feature.screenshot;
 
 import com.minieessential.MiniEssential;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.text.Text;
 import net.minecraft.util.Util;
 import org.lwjgl.glfw.GLFW;
@@ -12,13 +13,8 @@ import org.lwjgl.glfw.GLFW;
 import java.io.IOException;
 import java.nio.file.Path;
 
-/**
- * Feature 2 - Offline Screenshot Manager: right-click options.
- *
- * Offered when right-clicking a gallery entry:
- *   Open Folder, Copy Path, Delete, Cancel.
- */
 public class ScreenshotOptionsScreen extends Screen {
+    private final MinecraftClient mc = MinecraftClient.getInstance();
     private final Screen parent;
     private final ScreenshotManager.ScreenshotEntry entry;
     private final ScreenshotManager manager = new ScreenshotManager();
@@ -47,10 +43,9 @@ public class ScreenshotOptionsScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float tickDelta) {
-        renderBackground(graphics);
-        graphics.drawCenteredText(mc.textRenderer, entry.name(), width / 2, height / 2 - 60, 0xFFFFFF);
-        super.render(graphics, mouseX, mouseY, tickDelta);
+    public void render(DrawContext context, int mouseX, int mouseY, float tickDelta) {
+        super.render(context, mouseX, mouseY, tickDelta);
+        context.drawCenteredTextWithShadow(mc.textRenderer, entry.name(), width / 2, height / 2 - 60, 0xFFFFFFFF);
     }
 
     private void openFolder() {
@@ -59,7 +54,7 @@ public class ScreenshotOptionsScreen extends Screen {
         try {
             if (os == Util.OperatingSystem.WINDOWS) {
                 new ProcessBuilder("explorer", folder.toAbsolutePath().toString()).start();
-            } else if (os == Util.OperatingSystem.MACOS) {
+            } else if (os == Util.OperatingSystem.OSX) {
                 new ProcessBuilder("open", folder.toAbsolutePath().toString()).start();
             } else if (os == Util.OperatingSystem.LINUX) {
                 new ProcessBuilder("xdg-open", folder.toAbsolutePath().toString()).start();
@@ -87,18 +82,17 @@ public class ScreenshotOptionsScreen extends Screen {
         mc.setScreen(parent);
     }
 
-    /** Copy text to the OS clipboard via GLFW (no AWT). */
     private void copyToClipboard(String text) {
-        long window = MinecraftClient.getInstance().getWindow().getHandle();
+        long window = mc.getWindow().getHandle();
         GLFW.glfwSetClipboardString(window, text);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 256) { // ESC
+    public boolean keyPressed(KeyInput input) {
+        if (input.key() == 256) {
             mc.setScreen(parent);
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(input);
     }
 }

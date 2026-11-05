@@ -6,7 +6,6 @@
     "feature.zoom.mixin.GameRendererZoomMixin",
     "feature.zoom.mixin.MouseScrollMixin",
     "feature.skin.mixin.PlayerSkinMixin",
-    "feature.skin.mixin.PlayerModelSlimMixin",
     "feature.menu.mixin.PauseMenuMixin"
   ],
   "injectors": {
