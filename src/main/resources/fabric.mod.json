@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "miniessential",
+  "version": "${version}",
+  "name": "MiniEssential",
+  "description": "Lightweight client-side utility mod for offline/cracked Minecraft Java 1.21.11 (Fabric). Feature 1: Smooth Zoom.",
+  "authors": ["MiniEssential"],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/minieessential/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.minieessential.MiniEssential"
+    ]
+  },
+  "mixins": [
+    "miniessential.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

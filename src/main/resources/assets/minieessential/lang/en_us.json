@@ -1,0 +1,17 @@
+{
+  "key.minieessential.zoom": "Smooth Zoom",
+  "category.minieessential.features": "MiniEssential Features",
+  "screen.minieessential.gallery": "Screenshot Gallery",
+  "screen.minieessential.viewer": "Screenshot Viewer",
+  "screen.minieessential.options": "Screenshot Options",
+  "screen.minieessential.skin_switcher": "Skin Switcher",
+  "button.minieessential.back": "Back",
+  "button.minieessential.open_folder": "Open Folder",
+  "button.minieessential.copy_path": "Copy Path",
+  "button.minieessential.delete": "Delete",
+  "button.minieessential.cancel": "Cancel",
+  "button.minieessential.open_screenshots_folder": "Open Screenshots Folder",
+  "button.minieessential.scan_skins_folder": "Scan Skins Folder",
+  "button.minieessential.screenshots": "Screenshots",
+  "button.minieessential.skins": "Skins"
+}

@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8.0",
+  "package": "com.minieessential",
+  "mixins": [
+    "feature.zoom.mixin.GameRendererZoomMixin",
+    "feature.zoom.mixin.MouseScrollMixin",
+    "feature.skin.mixin.PlayerSkinMixin",
+    "feature.skin.mixin.PlayerModelSlimMixin",
+    "feature.menu.mixin.PauseMenuMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
